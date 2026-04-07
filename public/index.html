@@ -407,27 +407,18 @@
         elements.exportSvg.disabled = true;
         
         try {
-          // 创建SVG元素
-          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-          svg.setAttribute('width', elements.designPreview.offsetWidth);
-          svg.setAttribute('height', elements.designPreview.offsetHeight);
-          svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-          
-          // 将设计内容转换为SVG
-          // 这里使用简化的方法，将HTML转换为SVG
-          const svgContent = `
-            <foreignObject width="100%" height="100%">
-              <div xmlns="http://www.w3.org/1999/xhtml" style="width:100%; height:100%;">
-                ${currentHtml}
-              </div>
-            </foreignObject>
-          `;
-          
-          svg.innerHTML = svgContent;
+          // 创建完整的SVG内容
+          const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${elements.designPreview.offsetWidth}" height="${elements.designPreview.offsetHeight}" xmlns="http://www.w3.org/2000/svg">
+  <foreignObject width="100%" height="100%">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="width:100%; height:100%; font-family: Arial, sans-serif;">
+      ${currentHtml}
+    </div>
+  </foreignObject>
+</svg>`;
           
           // 生成SVG文件
-          const svgData = new XMLSerializer().serializeToString(svg);
-          const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+          const svgBlob = new Blob([svgContent], {type: 'image/svg+xml;charset=utf-8'});
           const svgUrl = URL.createObjectURL(svgBlob);
           
           // 下载SVG文件
