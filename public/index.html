@@ -7,6 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html-to-svg@1.0.0/dist/html-to-svg.min.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -406,45 +407,165 @@
         elements.exportSvg.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i> 导出中...';
         elements.exportSvg.disabled = true;
         
-        // 使用html2canvas将设计转换为图片
-        html2canvas(elements.designPreview, {
-          scale: 2,
-          useCORS: true,
-          logging: false
-        })
-        .then(canvas => {
-          // 将canvas转换为base64图片
-          const imageData = canvas.toDataURL('image/png');
+        try {
+          // 创建临时容器
+          const tempContainer = document.createElement('div');
+          tempContainer.style.width = elements.designPreview.offsetWidth + 'px';
+          tempContainer.style.height = elements.designPreview.offsetHeight + 'px';
+          tempContainer.innerHTML = currentHtml;
+          document.body.appendChild(tempContainer);
           
-          // 创建包含图片的SVG
-          const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
-<svg width="${canvas.width / 2}" height="${canvas.height / 2}" xmlns="http://www.w3.org/2000/svg">
-  <image width="100%" height="100%" href="${imageData}" />
-</svg>`;
-          
-          // 生成SVG文件
-          const svgBlob = new Blob([svgContent], {type: 'image/svg+xml;charset=utf-8'});
-          const svgUrl = URL.createObjectURL(svgBlob);
-          
-          // 下载SVG文件
-          const link = document.createElement('a');
-          link.download = 'ui-design.svg';
-          link.href = svgUrl;
-          link.click();
-          
-          // 清理
-          URL.revokeObjectURL(svgUrl);
-          
-          elements.exportSvg.innerHTML = '导出 SVG';
-          elements.exportSvg.disabled = false;
-        })
-        .catch(err => {
+          // 等待DOM加载完成
+          setTimeout(() => {
+            try {
+              // 创建SVG元素
+              const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+              svg.setAttribute('width', tempContainer.offsetWidth);
+              svg.setAttribute('height', tempContainer.offsetHeight);
+              svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+              
+              // 遍历临时容器中的元素并转换为SVG
+              convertElementsToSvg(tempContainer, svg);
+              
+              // 生成SVG文件
+              const svgData = new XMLSerializer().serializeToString(svg);
+              const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+              const svgUrl = URL.createObjectURL(svgBlob);
+              
+              // 下载SVG文件
+              const link = document.createElement('a');
+              link.download = 'ui-design.svg';
+              link.href = svgUrl;
+              link.click();
+              
+              // 清理
+              URL.revokeObjectURL(svgUrl);
+              document.body.removeChild(tempContainer);
+              
+              elements.exportSvg.innerHTML = '导出 SVG';
+              elements.exportSvg.disabled = false;
+            } catch (err) {
+              console.error('导出SVG失败:', err);
+              document.body.removeChild(tempContainer);
+              elements.exportSvg.innerHTML = '导出 SVG';
+              elements.exportSvg.disabled = false;
+              alert('导出SVG失败，请重试');
+            }
+          }, 100);
+        } catch (err) {
           console.error('导出SVG失败:', err);
           elements.exportSvg.innerHTML = '导出 SVG';
           elements.exportSvg.disabled = false;
           alert('导出SVG失败，请重试');
-        });
+        }
       });
+
+      // 将HTML元素转换为SVG元素
+      function convertElementsToSvg(element, svg) {
+        // 处理不同类型的元素
+        if (element.nodeType === Node.ELEMENT_NODE) {
+          switch (element.tagName.toLowerCase()) {
+            case 'div':
+            case 'section':
+            case 'main':
+            case 'header':
+            case 'footer':
+              // 创建SVG组元素
+              const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+              // 应用样式
+              applyStyles(element, g);
+              svg.appendChild(g);
+              // 递归处理子元素
+              for (let i = 0; i < element.children.length; i++) {
+                convertElementsToSvg(element.children[i], g);
+              }
+              break;
+            case 'h1':
+            case 'h2':
+            case 'h3':
+            case 'h4':
+            case 'h5':
+            case 'h6':
+            case 'p':
+            case 'span':
+            case 'a':
+              // 创建SVG文本元素
+              const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+              text.textContent = element.textContent;
+              // 应用样式
+              applyStyles(element, text);
+              svg.appendChild(text);
+              break;
+            case 'button':
+              // 创建SVG矩形作为按钮背景
+              const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+              const rectBounds = element.getBoundingClientRect();
+              const svgBounds = svg.getBoundingClientRect();
+              rect.setAttribute('x', rectBounds.left - svgBounds.left);
+              rect.setAttribute('y', rectBounds.top - svgBounds.top);
+              rect.setAttribute('width', rectBounds.width);
+              rect.setAttribute('height', rectBounds.height);
+              rect.setAttribute('rx', '4');
+              rect.setAttribute('ry', '4');
+              // 应用按钮样式
+              applyStyles(element, rect);
+              svg.appendChild(rect);
+              
+              // 创建按钮文本
+              const buttonText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+              buttonText.textContent = element.textContent;
+              buttonText.setAttribute('x', rectBounds.left - svgBounds.left + rectBounds.width / 2);
+              buttonText.setAttribute('y', rectBounds.top - svgBounds.top + rectBounds.height / 2 + 5);
+              buttonText.setAttribute('text-anchor', 'middle');
+              buttonText.setAttribute('fill', '#ffffff');
+              svg.appendChild(buttonText);
+              break;
+            case 'img':
+              // 创建SVG图像元素
+              const image = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+              const imgBounds = element.getBoundingClientRect();
+              const imgSvgBounds = svg.getBoundingClientRect();
+              image.setAttribute('x', imgBounds.left - imgSvgBounds.left);
+              image.setAttribute('y', imgBounds.top - imgSvgBounds.top);
+              image.setAttribute('width', imgBounds.width);
+              image.setAttribute('height', imgBounds.height);
+              image.setAttribute('href', element.src);
+              svg.appendChild(image);
+              break;
+            default:
+              // 对于其他元素，创建SVG组元素并递归处理
+              const defaultG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+              applyStyles(element, defaultG);
+              svg.appendChild(defaultG);
+              for (let i = 0; i < element.children.length; i++) {
+                convertElementsToSvg(element.children[i], defaultG);
+              }
+          }
+        }
+      }
+
+      // 应用样式到SVG元素
+      function applyStyles(element, svgElement) {
+        const computedStyle = window.getComputedStyle(element);
+        
+        // 应用背景颜色
+        if (computedStyle.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+          svgElement.setAttribute('fill', computedStyle.backgroundColor);
+        }
+        
+        // 应用边框
+        if (computedStyle.border !== '0px none rgb(0, 0, 0)') {
+          svgElement.setAttribute('stroke', computedStyle.borderColor);
+          svgElement.setAttribute('stroke-width', computedStyle.borderWidth);
+        }
+        
+        // 应用位置和尺寸
+        const bounds = element.getBoundingClientRect();
+        const svgBounds = svgElement.parentNode.getBoundingClientRect();
+        if (svgElement.tagName.toLowerCase() !== 'text') {
+          svgElement.setAttribute('transform', `translate(${bounds.left - svgBounds.left}, ${bounds.top - svgBounds.top})`);
+        }
+      }
 
       // 导出 HTML
       elements.exportHtml.addEventListener('click', () => {
