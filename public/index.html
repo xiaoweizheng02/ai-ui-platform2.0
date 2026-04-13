@@ -413,14 +413,8 @@
           svg.setAttribute('height', elements.designPreview.offsetHeight);
           svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
           
-          // 遍历设计预览中的所有元素并转换为SVG
-          const elementsToConvert = elements.designPreview.querySelectorAll('*');
-          elementsToConvert.forEach(element => {
-            const svgElement = convertElementToSvg(element);
-            if (svgElement) {
-              svg.appendChild(svgElement);
-            }
-          });
+          // 递归处理设计预览中的元素
+          processElement(elements.designPreview, svg, 0, 0);
           
           // 生成SVG文件
           const svgData = new XMLSerializer().serializeToString(svg);
@@ -446,21 +440,21 @@
         }
       });
 
-      // 将HTML元素转换为SVG元素
-      function convertElementToSvg(element) {
+      // 递归处理HTML元素
+      function processElement(element, parentSvg) {
         const computedStyle = window.getComputedStyle(element);
         const bounds = element.getBoundingClientRect();
-        const designBounds = elements.designPreview.getBoundingClientRect();
+        const parentBounds = element.parentElement.getBoundingClientRect();
         
-        // 计算相对位置
-        const x = bounds.left - designBounds.left;
-        const y = bounds.top - designBounds.top;
+        // 计算相对位置（相对于父元素）
+        const x = bounds.left - parentBounds.left;
+        const y = bounds.top - parentBounds.top;
         const width = bounds.width;
         const height = bounds.height;
         
         // 跳过隐藏元素
         if (computedStyle.display === 'none' || computedStyle.visibility === 'hidden') {
-          return null;
+          return;
         }
         
         // 创建SVG组元素
@@ -490,33 +484,46 @@
           g.appendChild(rect);
         }
         
-        // 处理文本
-        if (element.nodeType === Node.TEXT_NODE || 
-            (element.nodeType === Node.ELEMENT_NODE && 
-             ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'a', 'button'].includes(element.tagName.toLowerCase()))) {
-          const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-          text.textContent = element.textContent || element.innerText;
-          text.setAttribute('x', '10');
-          text.setAttribute('y', '20');
-          text.setAttribute('fill', computedStyle.color);
-          text.setAttribute('font-size', computedStyle.fontSize);
-          text.setAttribute('font-family', computedStyle.fontFamily);
-          text.setAttribute('font-weight', computedStyle.fontWeight);
+        // 处理元素内容
+        if (element.nodeType === Node.ELEMENT_NODE) {
+          // 处理图片
+          if (element.tagName.toLowerCase() === 'img' && element.src) {
+            const image = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+            image.setAttribute('width', width);
+            image.setAttribute('height', height);
+            image.setAttribute('href', element.src);
+            
+            g.appendChild(image);
+          }
           
-          g.appendChild(text);
+          // 处理文本元素
+          if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'a', 'button'].includes(element.tagName.toLowerCase())) {
+            if (element.textContent.trim()) {
+              // 计算文本位置
+              const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+              const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+              const lineHeight = parseFloat(computedStyle.lineHeight) || 20;
+              
+              const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+              text.textContent = element.textContent;
+              text.setAttribute('x', paddingLeft);
+              text.setAttribute('y', paddingTop + lineHeight);
+              text.setAttribute('fill', computedStyle.color);
+              text.setAttribute('font-size', computedStyle.fontSize);
+              text.setAttribute('font-family', computedStyle.fontFamily);
+              text.setAttribute('font-weight', computedStyle.fontWeight);
+              
+              g.appendChild(text);
+            }
+          }
+          
+          // 递归处理子元素
+          Array.from(element.children).forEach(child => {
+            processElement(child, g);
+          });
         }
         
-        // 处理图片
-        if (element.tagName && element.tagName.toLowerCase() === 'img' && element.src) {
-          const image = document.createElementNS('http://www.w3.org/2000/svg', 'image');
-          image.setAttribute('width', width);
-          image.setAttribute('height', height);
-          image.setAttribute('href', element.src);
-          
-          g.appendChild(image);
-        }
-        
-        return g;
+        parentSvg.appendChild(g);
       }
 
       // 导出 HTML
