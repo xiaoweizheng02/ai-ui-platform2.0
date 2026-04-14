@@ -584,7 +584,7 @@
           svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
           
           // 递归处理设计预览中的元素
-          processElement(elements.designPreview, svg, 0, 0);
+          processElement(elements.designPreview, svg);
           
           // 生成SVG文件
           const svgData = new XMLSerializer().serializeToString(svg);
@@ -739,7 +739,13 @@
     }
 
     // 初始化
-    init();
+    console.log('Initializing...');
+    try {
+      init();
+      console.log('Initialization completed successfully');
+    } catch (error) {
+      console.error('Initialization error:', error);
+    }
   </script>
 </body>
 </html>
